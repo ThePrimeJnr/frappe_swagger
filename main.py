@@ -1,12 +1,10 @@
 import argparse
 import ast
 import os
-
 import fastapi
 import uvicorn
 
 app = fastapi.FastAPI()
-
 
 def extract_routes_from_file(file_path, file_name, app_name):
     with open(file_path, "r") as source:
@@ -64,10 +62,11 @@ def extract_routes_from_file(file_path, file_name, app_name):
 
                         route = {
                             "function_name": node.name,
-                            "path": f"/{app_name.lower()}.api.{file_name}.{node.name}",
+                            "path": f"/api/methods/{app_name.lower()}.api.{file_name}.{node.name}",
                             "method": methods,
                             "params": params,
                             "doc": doc_summary,
+                            "responses": {},
                             "tag": file_name,
                         }
                         routes.append(route)
@@ -92,6 +91,7 @@ def generate_openapi_spec(routes, app_name):
         methods = route["method"]
         doc = route["doc"]
         params = route["params"]
+        responses = route["responses"]
         tag = route["tag"]
 
         # Add tag to the set of tags
@@ -124,13 +124,13 @@ def generate_openapi_spec(routes, app_name):
                 }
                 if method in ["POST", "PUT"]
                 else None,
+                "responses": responses or {"200": {"description": "Successful Response"}},
                 "tags": [tag],
             }
 
     openapi_schema["tags"] = [{"name": tag} for tag in tags]
 
     return openapi_schema
-
 
 def extract_routes_from_module(module_path, app_name):
     all_routes = []
@@ -145,17 +145,14 @@ def extract_routes_from_module(module_path, app_name):
 
     return all_routes
 
-
 def custom_openapi(module_path, app_name):
     routes = extract_routes_from_module(module_path, app_name)
     openapi_schema = generate_openapi_spec(routes, app_name)
 
     return openapi_schema
 
-
 def set_openapi(module_path, app_name):
     app.openapi = lambda: custom_openapi(module_path, app_name)
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -181,6 +178,6 @@ def main():
 
     uvicorn.run(app, host=args.host, port=args.port)
 
-
 if __name__ == "__main__":
     main()
+
